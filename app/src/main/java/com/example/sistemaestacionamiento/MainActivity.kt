@@ -13,7 +13,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.sistemaestacionamiento.ui.theme.SistemaEstacionamientoTheme
-import com.example.sistemaestacionamiento.vistas.HomeView
+import com.example.sistemaestacionamiento.vistas.ChangePasswordView
+import com.example.sistemaestacionamiento.vistas.MainScreen
 import com.example.sistemaestacionamiento.vistas.LoginView
 import com.example.sistemaestacionamiento.vistas.RegisterView
 
@@ -53,7 +54,10 @@ class MainActivity : ComponentActivity() {
                                 RegisterView(navController, auth)
                             }
                             composable("home") {
-                                HomeView(navController, auth)
+                                MainScreen(navController, auth)
+                            }
+                            composable("change_password") {
+                                ChangePasswordView(navController, auth)
                             }
                         }
 
