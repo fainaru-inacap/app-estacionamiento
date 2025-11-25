@@ -23,6 +23,7 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.ktx.getValue
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
 
 data class ParkingSpot(
@@ -36,6 +37,7 @@ data class ParkingSpot(
 fun HomeView(navController: NavController, auth: FirebaseAuth) {
     val context = LocalContext.current
     val database = FirebaseDatabase.getInstance().reference
+    val firestore = FirebaseFirestore.getInstance()
 
     val parkingStates = remember { mutableStateListOf<ParkingSpot>() }
     val estadoEstacionamiento = remember { mutableStateOf("Cargando...") }
@@ -93,6 +95,22 @@ fun HomeView(navController: NavController, auth: FirebaseAuth) {
             isLoading.value = true
 
             database.child("comandos").child("abrir_puerta").setValue(true)
+
+            // Add to Firestore history
+            val user = auth.currentUser
+            if (user != null) {
+                val historyEntry = hashMapOf(
+                    "userId" to user.uid,
+                    "userEmail" to user.email,
+                    "action" to "Abrir Barrera",
+                    "timestamp" to com.google.firebase.Timestamp.now()
+                )
+                firestore.collection("historial")
+                    .add(historyEntry)
+                    .addOnFailureListener { e ->
+                        Toast.makeText(context, "Error al guardar historial: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+            }
 
             delay(2000)
 

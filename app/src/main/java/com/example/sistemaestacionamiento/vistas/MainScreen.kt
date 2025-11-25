@@ -64,7 +64,7 @@ fun MainScreen(mainNavController: NavController, auth: FirebaseAuth) {
     ) { innerPadding ->
         NavHost(navController, startDestination = Screen.Home.route, Modifier.padding(innerPadding)) {
             composable(Screen.Home.route) { HomeView(mainNavController, auth) }
-            composable(Screen.History.route) { HistorialView() }
+            composable(Screen.History.route) { HistorialView(auth) }
             composable(Screen.Profile.route) { PerfilView(mainNavController, auth) }
         }
     }
