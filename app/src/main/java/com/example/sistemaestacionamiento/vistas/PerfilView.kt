@@ -31,13 +31,13 @@ fun PerfilView(navController: NavController, auth: FirebaseAuth) {
         verticalArrangement = Arrangement.spacedBy(30.dp)
     ) {
 
-        // --- Encabezado Perfil ---
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            // Avatar mejorado con borde
+
             Box(
                 modifier = Modifier
                     .size(90.dp)
@@ -71,7 +71,7 @@ fun PerfilView(navController: NavController, auth: FirebaseAuth) {
             }
         }
 
-        // --- Tarjeta de acciones ---
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
@@ -87,7 +87,7 @@ fun PerfilView(navController: NavController, auth: FirebaseAuth) {
                     .padding(vertical = 4.dp)
             ) {
 
-                // Fila reutilizable mejorada
+
                 OptionRow(
                     icon = Icons.Default.Key,
                     text = "Cambiar contraseña",

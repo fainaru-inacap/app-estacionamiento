@@ -1,27 +1,11 @@
 package com.example.sistemaestacionamiento.vistas
 
 import android.widget.Toast
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -36,8 +20,8 @@ import com.google.firebase.auth.FirebaseAuth
 fun ChangePasswordView(navController: NavController, auth: FirebaseAuth) {
     var currentPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
-    val context = LocalContext.current
     val user = auth.currentUser
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -54,52 +38,80 @@ fun ChangePasswordView(navController: NavController, auth: FirebaseAuth) {
             )
         }
     ) { paddingValues ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
+                .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
+            Text(
+                "Por motivos de seguridad debes ingresar tu contraseña actual.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+
             OutlinedTextField(
                 value = currentPassword,
                 onValueChange = { currentPassword = it },
-                label = { Text("Contraseña Actual") },
-                visualTransformation = PasswordVisualTransformation()
+                label = { Text("Contraseña actual") },
+                modifier = Modifier.fillMaxWidth(),
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true
             )
-            Spacer(modifier = Modifier.height(8.dp))
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+
             OutlinedTextField(
                 value = newPassword,
                 onValueChange = { newPassword = it },
-                label = { Text("Nueva Contraseña") },
-                visualTransformation = PasswordVisualTransformation()
+                label = { Text("Nueva contraseña") },
+                modifier = Modifier.fillMaxWidth(),
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = {
-                if (currentPassword.isNotEmpty() && newPassword.isNotEmpty()) {
-                    user?.let {
-                        val credential = EmailAuthProvider.getCredential(it.email!!, currentPassword)
-                        it.reauthenticate(credential).addOnCompleteListener { reauthTask ->
-                            if (reauthTask.isSuccessful) {
-                                it.updatePassword(newPassword).addOnCompleteListener { updateTask ->
-                                    if (updateTask.isSuccessful) {
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+
+            Button(
+                onClick = {
+                    if (currentPassword.isBlank() || newPassword.isBlank()) {
+                        Toast.makeText(context, "Debe completar todos los campos", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    user?.let { u ->
+                        val credential = EmailAuthProvider.getCredential(u.email!!, currentPassword)
+
+                        u.reauthenticate(credential).addOnCompleteListener { reauth ->
+                            if (reauth.isSuccessful) {
+                                u.updatePassword(newPassword).addOnCompleteListener { update ->
+                                    if (update.isSuccessful) {
                                         Toast.makeText(context, "Contraseña actualizada correctamente", Toast.LENGTH_SHORT).show()
                                         navController.popBackStack()
                                     } else {
-                                        Toast.makeText(context, "Error al actualizar la contraseña: ${updateTask.exception?.message}", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "Error: ${update.exception?.message}", Toast.LENGTH_LONG).show()
                                     }
                                 }
                             } else {
-                                Toast.makeText(context, "Re-autenticación fallida: ${reauthTask.exception?.message}", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Contraseña actual incorrecta", Toast.LENGTH_LONG).show()
                             }
                         }
                     }
-                } else {
-                    Toast.makeText(context, "Por favor, complete todos los campos", Toast.LENGTH_SHORT).show()
-                }
-            }) {
-                Text("Actualizar Contraseña")
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Text("Actualizar contraseña")
             }
         }
     }

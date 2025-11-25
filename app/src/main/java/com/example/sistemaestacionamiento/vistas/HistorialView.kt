@@ -21,9 +21,7 @@ import com.google.firebase.firestore.toObject
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-// ===============================================================
-// DATA CLASS
-// ===============================================================
+
 data class HistoryEntry(
     val action: String = "",
     val timestamp: Timestamp = Timestamp.now(),
@@ -31,9 +29,7 @@ data class HistoryEntry(
     val userId: String = ""
 )
 
-// ===============================================================
-// STATE CLASSES
-// ===============================================================
+
 sealed class HistoryState {
     object Loading : HistoryState()
     data class Success(val entries: List<HistoryEntry>) : HistoryState()
@@ -41,9 +37,7 @@ sealed class HistoryState {
     object Empty : HistoryState()
 }
 
-// ===============================================================
-// MAIN HISTORIAL VIEW
-// ===============================================================
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistorialView(auth: FirebaseAuth) {
@@ -83,9 +77,7 @@ fun HistorialView(auth: FirebaseAuth) {
         }
     }
 
-    // ======================
-    // UI CON TOOLBAR
-    // ======================
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -148,9 +140,7 @@ fun HistorialView(auth: FirebaseAuth) {
     }
 }
 
-// ===============================================================
-// HISTORY ITEM (TARJETA BONITA)
-// ===============================================================
+
 @Composable
 fun HistoryItem(entry: HistoryEntry) {
     val formatter = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
