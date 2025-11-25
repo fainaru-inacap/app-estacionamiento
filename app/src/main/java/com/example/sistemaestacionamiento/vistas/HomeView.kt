@@ -2,18 +2,13 @@ package com.example.sistemaestacionamiento.vistas
 
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.* 
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,49 +18,85 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
+import com.google.firebase.database.ktx.getValue
 import kotlinx.coroutines.delay
 
+data class ParkingSpot(
+    val nombre: String = "",
+    val ocupado: Boolean = false,
+    val distancia: Long = 0
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeView(navController: NavController, auth: FirebaseAuth) {
     val context = LocalContext.current
+    val database = FirebaseDatabase.getInstance().reference
 
-    val parkingStates = remember { mutableStateListOf(false, false, false) }
+    val parkingStates = remember { mutableStateListOf<ParkingSpot>() }
+    val estadoEstacionamiento = remember { mutableStateOf("Cargando...") }
+
 
     val buttonText = remember { mutableStateOf("Abrir Barrera") }
     val isLoading = remember { mutableStateOf(false) }
     val isButtonClicked: MutableState<Boolean> = remember { mutableStateOf(false) }
 
-
-
-    val topAppBarColor = if (parkingStates.count { it } == parkingStates.size) {
+    val topAppBarColor = if (parkingStates.isNotEmpty() && parkingStates.all { it.ocupado }) {
         Color(0xFFF44336) // Rojo si todos están ocupados
     } else {
         Color(0xFF4CAF50) // Verde si no todos están ocupados
     }
 
+    DisposableEffect(Unit) {
+        val estacionamientoRef = database.child("estacionamiento")
 
-    LaunchedEffect(Unit) {
-        while (true) {
-            // cambiar el estado de un estacionamiento de forma aleatoria
-            val randomIndex = (0 until parkingStates.size).random()
-            parkingStates[randomIndex] = !parkingStates[randomIndex]
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
 
+                // Update parking spots
+                val spotsList = snapshot.child("estacionamientos")
+                    .children
+                    .mapNotNull { it.getValue(ParkingSpot::class.java) }
 
-            delay(2000L)
+                parkingStates.clear()
+                parkingStates.addAll(spotsList)
+
+                // Update general state based on spots
+                if (parkingStates.isNotEmpty() && parkingStates.all { it.ocupado }) {
+                    estadoEstacionamiento.value = "Estacionamiento Cerrado"
+                } else {
+                    estadoEstacionamiento.value = "Estacionamiento Abierto"
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Toast.makeText(context, "Failed to read value: ${error.message}",
+                    Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        estacionamientoRef.addValueEventListener(listener)
+
+        onDispose {
+            estacionamientoRef.removeEventListener(listener)
         }
     }
 
+
     LaunchedEffect(isButtonClicked.value) {
         if (isButtonClicked.value) {
-
             buttonText.value = "Cargando..."
             isLoading.value = true
 
+            database.child("comandos").child("abrir_puerta").setValue(true)
 
             delay(2000)
 
+            database.child("comandos").child("abrir_puerta").setValue(false)
 
             isLoading.value = false
 
@@ -82,7 +113,7 @@ fun HomeView(navController: NavController, auth: FirebaseAuth) {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Estacionamiento Abierto",
+                        text = estadoEstacionamiento.value,
                         color = Color.White,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold
@@ -126,7 +157,11 @@ fun HomeView(navController: NavController, auth: FirebaseAuth) {
                         .fillMaxWidth(0.8f)
                         .height(56.dp)
                 ) {
-                    Text(text = buttonText.value, color = Color.White, fontSize = 18.sp)
+                    if (isLoading.value) {
+                        CircularProgressIndicator(color = Color.White)
+                    } else {
+                        Text(text = buttonText.value, color = Color.White, fontSize = 18.sp)
+                    }
                 }
             }
         }
@@ -139,13 +174,10 @@ fun HomeView(navController: NavController, auth: FirebaseAuth) {
             verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
             items(parkingStates.size) { index ->
+                val spot = parkingStates[index]
                 ParkingCard(
-                    nombre = "Estacionamiento ${index + 1}",
-                    estado = if (parkingStates[index]) "Ocupado" else "Libre",
-                    onClick = {
-
-                        parkingStates[index] = !parkingStates[index]
-                    }
+                    nombre = spot.nombre,
+                    estado = if (spot.ocupado) "Ocupado" else "Libre"
                 )
             }
         }
@@ -153,7 +185,7 @@ fun HomeView(navController: NavController, auth: FirebaseAuth) {
 }
 
 @Composable
-fun ParkingCard(nombre: String, estado: String, onClick: () -> Unit) {
+fun ParkingCard(nombre: String, estado: String) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -174,10 +206,13 @@ fun ParkingCard(nombre: String, estado: String, onClick: () -> Unit) {
                 fontSize = 20.sp,
                 color = Color.Black
             )
+            // This button is now just a visual indicator
             Button(
-                onClick = onClick,
+                onClick = {},
+                enabled = false,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (estado == "Ocupado") Color(0xFFF44336) else Color(0xFF00BCD4)
+                    containerColor = if (estado == "Ocupado") Color(0xFFF44336) else Color(0xFF4CAF50),
+                    disabledContainerColor = if (estado == "Ocupado") Color(0xFFF44336) else Color(0xFF4CAF50)
                 ),
                 shape = RoundedCornerShape(50)
             ) {
@@ -186,6 +221,3 @@ fun ParkingCard(nombre: String, estado: String, onClick: () -> Unit) {
         }
     }
 }
-
-
-
