@@ -40,43 +40,50 @@ fun HomeView(navController: NavController, auth: FirebaseAuth) {
     val firestore = FirebaseFirestore.getInstance()
 
     val parkingStates = remember { mutableStateListOf<ParkingSpot>() }
-    val estadoEstacionamiento = remember { mutableStateOf("Cargando...") }
+    val lastUpdateTime = remember { mutableStateOf(System.currentTimeMillis()) }
+    val currentTime = remember { mutableStateOf(System.currentTimeMillis()) }
 
+    val isConnected = (currentTime.value - lastUpdateTime.value) <= 5000
+    val allSpotsOccupied = parkingStates.isNotEmpty() && parkingStates.all { it.ocupado }
+
+    val estadoEstacionamiento = when {
+        !isConnected -> "Desconectado"
+        parkingStates.isEmpty() && isConnected -> "Cargando..."
+        allSpotsOccupied -> "Estacionamiento Cerrado"
+        else -> "Estacionamiento Abierto"
+    }
+
+    val topAppBarColor = when {
+        !isConnected -> Color.Gray
+        allSpotsOccupied -> Color(0xFFF44336)
+        else -> Color(0xFF4CAF50)
+    }
 
     val buttonText = remember { mutableStateOf("Abrir Barrera") }
     val isLoading = remember { mutableStateOf(false) }
     val isButtonClicked: MutableState<Boolean> = remember { mutableStateOf(false) }
 
-    val topAppBarColor = if (parkingStates.isNotEmpty() && parkingStates.all { it.ocupado }) {
-        Color(0xFFF44336) // Rojo si todos están ocupados
-    } else {
-        Color(0xFF4CAF50) // Verde si no todos están ocupados
-    }
 
     DisposableEffect(Unit) {
         val estacionamientoRef = database.child("estacionamiento")
 
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
+                val timestamp = snapshot.child("timestamp").getValue(Long::class.java)
+                if (timestamp != null) {
+                    lastUpdateTime.value = timestamp
+                }
 
-                // Update parking spots
                 val spotsList = snapshot.child("estacionamientos")
                     .children
                     .mapNotNull { it.getValue(ParkingSpot::class.java) }
 
                 parkingStates.clear()
                 parkingStates.addAll(spotsList)
-
-                // Update general state based on spots
-                if (parkingStates.isNotEmpty() && parkingStates.all { it.ocupado }) {
-                    estadoEstacionamiento.value = "Estacionamiento Cerrado"
-                } else {
-                    estadoEstacionamiento.value = "Estacionamiento Abierto"
-                }
             }
 
             override fun onCancelled(error: DatabaseError) {
-                Toast.makeText(context, "Failed to read value: ${error.message}",
+                Toast.makeText(context, "Fallo al leer: ${error.message}",
                     Toast.LENGTH_SHORT).show()
             }
         }
@@ -88,15 +95,27 @@ fun HomeView(navController: NavController, auth: FirebaseAuth) {
         }
     }
 
+    // Ticker to check for connection status
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000)
+            currentTime.value = System.currentTimeMillis()
+        }
+    }
 
     LaunchedEffect(isButtonClicked.value) {
         if (isButtonClicked.value) {
+            if (allSpotsOccupied) {
+                Toast.makeText(context, "Estacionamiento lleno. No se puede abrir la barrera.", Toast.LENGTH_LONG).show()
+                isButtonClicked.value = false
+                return@LaunchedEffect
+            }
+
             buttonText.value = "Cargando..."
             isLoading.value = true
 
             database.child("comandos").child("abrir_puerta").setValue(true)
 
-            // Add to Firestore history
             val user = auth.currentUser
             if (user != null) {
                 val historyEntry = hashMapOf(
@@ -131,7 +150,7 @@ fun HomeView(navController: NavController, auth: FirebaseAuth) {
             TopAppBar(
                 title = {
                     Text(
-                        text = estadoEstacionamiento.value,
+                        text = estadoEstacionamiento,
                         color = Color.White,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold
@@ -167,9 +186,12 @@ fun HomeView(navController: NavController, auth: FirebaseAuth) {
                 Button(
                     onClick = {
                         isButtonClicked.value = true
-
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                    enabled = isConnected && !isLoading.value,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (allSpotsOccupied) Color(0xFFF44336) else Color(0xFF4CAF50),
+                        disabledContainerColor = Color.DarkGray
+                    ),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier
                         .fillMaxWidth(0.8f)
@@ -195,7 +217,8 @@ fun HomeView(navController: NavController, auth: FirebaseAuth) {
                 val spot = parkingStates[index]
                 ParkingCard(
                     nombre = spot.nombre,
-                    estado = if (spot.ocupado) "Ocupado" else "Libre"
+                    estado = if (spot.ocupado) "Ocupado" else "Libre",
+                    isEnabled = isConnected
                 )
             }
         }
@@ -203,7 +226,7 @@ fun HomeView(navController: NavController, auth: FirebaseAuth) {
 }
 
 @Composable
-fun ParkingCard(nombre: String, estado: String) {
+fun ParkingCard(nombre: String, estado: String, isEnabled: Boolean) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -222,19 +245,22 @@ fun ParkingCard(nombre: String, estado: String) {
             Text(
                 text = nombre,
                 fontSize = 20.sp,
-                color = Color.Black
+                color = if (isEnabled) Color.Black else Color.Gray
             )
-            // This button is now just a visual indicator
             Button(
                 onClick = {},
                 enabled = false,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (estado == "Ocupado") Color(0xFFF44336) else Color(0xFF4CAF50),
-                    disabledContainerColor = if (estado == "Ocupado") Color(0xFFF44336) else Color(0xFF4CAF50)
+                    disabledContainerColor = if (isEnabled) {
+                        if (estado == "Ocupado") Color(0xFFF44336) else Color(0xFF4CAF50)
+                    } else {
+                        Color.DarkGray
+                    }
                 ),
                 shape = RoundedCornerShape(50)
             ) {
-                Text(text = estado, color = Color.White, fontSize = 16.sp)
+                val estadoText = if (isEnabled) estado else "--"
+                Text(text = estadoText, color = Color.White, fontSize = 16.sp)
             }
         }
     }
