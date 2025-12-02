@@ -43,7 +43,7 @@ fun HomeView(navController: NavController, auth: FirebaseAuth) {
     val lastUpdateTime = remember { mutableStateOf(System.currentTimeMillis()) }
     val currentTime = remember { mutableStateOf(System.currentTimeMillis()) }
 
-    val isConnected = (currentTime.value - lastUpdateTime.value) <= 5000
+    val isConnected = (currentTime.value - lastUpdateTime.value) <= 8000
     val allSpotsOccupied = parkingStates.isNotEmpty() && parkingStates.all { it.ocupado }
 
     val estadoEstacionamiento = when {
